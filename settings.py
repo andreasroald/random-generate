@@ -21,6 +21,7 @@ FPS = 60
 # Player variables
 player_acc = 0.5
 player_grav = 0.5
+reactivity_percent = 2
 
 # Font variables
 font_file = "fonts/8-Bit-Madness.ttf"

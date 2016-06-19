@@ -16,7 +16,6 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image_rect.copy()
         self.rect.x, self.rect.y = (x, y)
 
-        self.moving = False
         self.left_lock = False
         self.right_lock = False
 
@@ -27,101 +26,96 @@ class Player(pygame.sprite.Sprite):
         self.y_velocity = 0
 
         self.jumping = False
-        self.jump_rect = pygame.Rect((0, 0, 51, 35))
+        self.jump_rect = pygame.Rect((0, 0, 32, 35))
         self.should_jump = False
 
         self.direction = "right"
+
+        self.cam_direction = "middle"
 
         self.space = False
 
         self.in_exit = False
 
+        # Ghost jump variables
+        self.previous = (0, 0) # Index 0 is previous jumping state (True/False), 1 is last y-coordinate
+        self.ghost_jump = False
+        self.ghost_jump_started = 0
+
         # Solid list is the sprite group that contains the walls
         self.solid_list = solid_list
 
-    # Player class event handling
-    def events(self):
-        #Reset moving & acceleration
-        self.moving = False
-        self.acceleration = 0
-
-        # Movement keys handling
-        keys = pygame.key.get_pressed()
-
-        if keys[pygame.K_a] and not self.left_lock:
-            self.right_lock = True
-            self.moving = True
-            self.acceleration = -settings.player_acc
-            self.accelerate(self.acceleration)
-        else:
-            self.right_lock = False
-
-        if keys[pygame.K_d] and not self.right_lock:
-            self.left_lock = True
-            self.moving = True
-            self.acceleration = settings.player_acc
-            self.accelerate(self.acceleration)
-        else:
-            self.left_lock = False
-
-        if not keys[pygame.K_a] and not keys[pygame.K_d]:
-            if self.x_velocity != 0:
-                self.moving = True
-            self.accelerate(self.acceleration)
-
-        # Check if space is still held
-        if keys[pygame.K_SPACE]:
-            self.space = True
-        elif self.space:
-            self.space = False
-
-    # Accelerate the player movement with acc_movement
-    def accelerate(self, acc_movement):
-        if acc_movement > 0:
-            if self.x_velocity >= self.x_top_speed:
-                self.x_velocity = self.x_top_speed
-
-            elif acc_movement < self.x_top_speed:
-                self.x_velocity += acc_movement
-
-        elif acc_movement < 0:
-            if self.x_velocity <= -self.x_top_speed:
-                self.x_velocity = -self.x_top_speed
-
-            elif acc_movement > -self.x_top_speed:
-                self.x_velocity += acc_movement
-
-        # If x_velocity is not 0, slowly make x_velocity slower
-        else:
-            # Decelerate faster on ground (multiply by 3)
-            if self.x_velocity > 0:
-                if self.x_velocity - settings.player_acc * 3 > 0:
-                    self.x_velocity -= settings.player_acc * 3
-                else:
-                    self.x_velocity -= settings.player_acc
-            elif self.x_velocity < 0:
-                if self.x_velocity + settings.player_acc * 3 < 0:
-                    self.x_velocity += settings.player_acc * 3
-                else:
-                    self.x_velocity += settings.player_acc
-
     # Make the player jump
     def jump(self):
-        if not self.jumping:
+        if not self.jumping or self.ghost_jump:
             self.jumping = True
+
             self.y_velocity = -15
 
     # If space is pressed and the jump rect is touching the ground, jump automaticly right after landing
-    # This makes the game feel more responsive and prevents the "aw shit i pressed space why didnt i jump" - situations
     def test_for_jump(self):
         for tiles in self.solid_list:
             if self.jump_rect.colliderect(tiles.rect):
                 self.should_jump = True
                 break
 
-    # Movement and collision detection
-    def movement(self):
-        self.events()
+    def update(self):
+        #Reset moving & acceleration
+        self.acceleration = 0
+
+        self.previous = (self.jumping, self.rect.y)
+
+        # Movement keys handling
+        keys = pygame.key.get_pressed()
+
+        if keys[pygame.K_LSHIFT] and not self.jumping:
+            self.x_top_speed = 10
+        if not keys[pygame.K_LSHIFT]:
+            self.x_top_speed = 6
+
+        if keys[pygame.K_a] and not self.left_lock:
+            self.right_lock = True
+
+            self.acceleration = -settings.player_acc
+
+            # Switch direction faster
+            if self.x_velocity > 0:
+                self.x_velocity += self.acceleration + self.acceleration * settings.reactivity_percent
+            else:
+                self.x_velocity += self.acceleration
+
+            self.x_velocity = max(self.x_velocity, -self.x_top_speed)
+
+        else:
+            self.right_lock = False
+
+        if keys[pygame.K_d] and not self.right_lock:
+            self.left_lock = True
+
+            self.acceleration = settings.player_acc
+
+            # Switch direciton faster
+            if self.x_velocity < 0:
+                self.x_velocity += self.acceleration + self.acceleration * settings.reactivity_percent
+            else:
+                self.x_velocity += self.acceleration
+
+            self.x_velocity = min(self.x_velocity, self.x_top_speed)
+
+        else:
+            self.left_lock = False
+
+        if not keys[pygame.K_a] and not keys[pygame.K_d]:
+            if self.x_velocity > 0:
+                self.x_velocity -= settings.player_acc * 2
+            if self.x_velocity < 0:
+                self.x_velocity += settings.player_acc * 2
+
+        # Check if space is still held
+        if keys[pygame.K_SPACE]:
+            self.space = True
+        elif self.space:
+            self.space = False
 
         # Change direciton based on velocity
         if self.x_velocity > 0:
@@ -130,8 +124,7 @@ class Player(pygame.sprite.Sprite):
             self.direction = "left"
 
         # X-Axis movement
-        if self.moving:
-            self.rect.x += self.x_velocity
+        self.rect.x += self.x_velocity
 
         # Check if the player hit any walls during X-movement
         hit_list = pygame.sprite.spritecollide(self, self.solid_list, False)
@@ -174,9 +167,19 @@ class Player(pygame.sprite.Sprite):
                 self.y_velocity = 0
                 self.jumping = True
                 break
-        # If loop doesnt break, then player is in-air and shouldnt be able to jump (unless wall-hugging)
+        # If loop doesnt break, then player is in-air and shouldnt be able to jump
         else:
             self.jumping = True
+
+        # Ghost-jumping
+        if not self.previous[0] and self.jumping:
+            if self.rect.y > self.previous[1]:
+                self.ghost_jump = True
+                self.ghost_jump_started = pygame.time.get_ticks()
+
+        if self.ghost_jump:
+            if pygame.time.get_ticks() - self.ghost_jump_started > 100:
+                self.ghost_jump = False
 
         # Only auto jump if jump rect collides with the ground all the time
         if self.should_jump:
@@ -193,10 +196,6 @@ class Player(pygame.sprite.Sprite):
         # Reposition image drawing rect
         self.image_rect.center = self.rect.center
         self.image_rect.bottom = self.rect.bottom
-
-    # Update the player class
-    def update(self):
-        self.movement()
 
     # Player drawing function
     def draw(self, display):
@@ -220,3 +219,20 @@ class Wall(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+
+# Camera sprite that follows the player smoothly (does not handle the game scrolling)
+class Camera(pygame.sprite.Sprite):
+    # Initialize the camera class
+    def __init__(self, player):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.player = player
+
+        self.camera_align = "middle"
+
+        self.rect = pygame.Rect((self.player.rect.x, self.player.rect.y, 40, 40))
+
+    def update(self):
+        self.rect.x += (self.player.rect.x - self.rect.x) * 0.1
+
+        self.rect.y += (self.player.rect.y - self.rect.y) * 0.1

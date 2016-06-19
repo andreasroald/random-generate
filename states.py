@@ -39,19 +39,15 @@ class Level(States):
         col = random.randint(0, 3)
 
         level[row][col] = 1
-
-        # Set this to -1, and left will become right, and vice versa
-        step = 1
-
         while True:
             direction = random.randint(1, 5)
 
             previous = (row, col)
 
             if direction == 1 or direction == 2:
-                col -= step
+                col -= 1
             elif direction == 3 or direction == 4:
-                col += step
+                col += 1
             else:
                 row += 1
 
@@ -59,21 +55,9 @@ class Level(States):
                 col += 1
                 row += 1
 
-                # Switching direction
-                if step > 0:
-                    step = -1
-                if step < 0:
-                    step = 1
-
             if col > 3:
                 col -= 1
                 row += 1
-
-                # Switching direction
-                if step > 0:
-                    step = -1
-                if step < 0:
-                    step = 1
 
             if row > 3:
                 break
@@ -108,18 +92,12 @@ class Level(States):
                 # Switching to the correct template
                 if cols == 0:
                     current_template = templates.templates_all[random.randrange(0, len(templates.templates_all))]
-                else:
-                    # Reset players spawn position each time a solution path room is made
-                    # so that the last room of the solution path is the players spawn point
-                    self.player_x = level_x +  16 * 32 / 2
-                    self.player_y = level_y +  16 * 32 / 4
-
-                    if cols == 1:
-                        current_template = templates.templates_lr[random.randrange(0, len(templates.templates_lr))]
-                    elif cols == 2:
-                        current_template = templates.templates_tlbr[random.randrange(0, len(templates.templates_tlbr))]
-                    elif cols == 3:
-                        current_template = templates.templates_tlr[random.randrange(0, len(templates.templates_tlr))]
+                if cols == 1:
+                    current_template = templates.templates_lr[random.randrange(0, len(templates.templates_lr))]
+                elif cols == 2:
+                    current_template = templates.templates_tlbr[random.randrange(0, len(templates.templates_tlbr))]
+                elif cols == 3:
+                    current_template = templates.templates_tlr[random.randrange(0, len(templates.templates_tlr))]
 
                 temp_level_x = level_x
                 temp_level_y = level_y
@@ -135,10 +113,17 @@ class Level(States):
                         if temp_cols == 1:
                             w = sprites.Wall(temp_level_x, temp_level_y, 32, 32)
                             self.walls.add(w)
-                        if temp_cols == -1 and exit:
-                            w = sprites.Wall(temp_level_x, temp_level_y, 32, 64, settings.green)
-                            self.exits.add(w)
-                            exit = False # Place exit in first room placed
+                        if temp_cols == -1:
+                            if exit:
+                                w = sprites.Wall(temp_level_x, temp_level_y, 32, 64, settings.green)
+                                self.exits.add(w)
+                                exit = False # Place exit in first room placed
+
+                            if cols != 0:
+                                # Player starting position at last room made, -1 position, if room is part of solution path
+                                self.player_x = temp_level_x
+                                self.player_y = temp_level_y
+
                         if temp_cols == 2:
                             w = sprites.Wall(temp_level_x, temp_level_y, 32, 32, image=resources.ladder)
                             self.ladders.add(w)
@@ -150,6 +135,9 @@ class Level(States):
                 level_x += 16 * 32
             level_x = 32
             level_y += 16 * 32
+
+        for x in level:
+            print(x)
 
     # Starting the Level state
     def init_level(self):
@@ -175,6 +163,7 @@ class Level(States):
         # Camera variables
         self.cam_x_offset = 0
         self.cam_y_offset = self.max_y_offset
+        self.camera = sprites.Camera(self.player)
 
         # Screen shake variables
         self.shake_amount = 10
@@ -187,7 +176,7 @@ class Level(States):
         if event.type == pygame.KEYDOWN:
             # Player jumping
             if event.key == pygame.K_SPACE:
-                if self.player.jumping:
+                if self.player.jumping and not self.player.ghost_jump:
                     self.player.test_for_jump()
                 else:
                     self.player.jump()
@@ -201,14 +190,18 @@ class Level(States):
 
     # Common updates function
     def updates(self):
+        self.camera.camera_align = self.player.cam_direction
+
+        self.camera.update()
+
         # Horizontal Camera scrolling
-        self.cam_x_offset = self.player.rect.x - settings.display_width / 2
+        self.cam_x_offset = self.camera.rect.x - settings.display_width / 2
 
         self.cam_x_offset = max(0, self.cam_x_offset)
         self.cam_x_offset = min(((66 - 25) * 32, self.cam_x_offset))
 
         # Vertical Camera scrolling
-        self.cam_y_offset = self.player.rect.center[1] - settings.display_height / 2
+        self.cam_y_offset = self.camera.rect.center[1] - settings.display_height / 2
 
         self.cam_y_offset = max(0, self.cam_y_offset)
         self.cam_y_offset = min(self.max_y_offset, self.cam_y_offset)
