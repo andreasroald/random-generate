@@ -129,7 +129,6 @@ class Player(pygame.sprite.Sprite):
         # Check if the player hit any walls during X-movement
         hit_list = pygame.sprite.spritecollide(self, self.solid_list, False)
         for hits in hit_list:
-            # If top solid is true, the tile can be moved through on the X-Axis
             if self.direction == "right":
                 self.rect.right = hits.rect.left
                 self.x_velocity = settings.player_acc # Set x_velocity to settings.player_acc/-settings.player_acc so that x_velocity doesnt build up
@@ -226,13 +225,20 @@ class Camera(pygame.sprite.Sprite):
     def __init__(self, player):
         pygame.sprite.Sprite.__init__(self)
 
+        self.image = pygame.Surface((40, 40))
+        self.image.fill(settings.green)
+        self.rect = self.image.get_rect()
+
         self.player = player
 
-        self.camera_align = "middle"
+        self.rect.x = self.player.rect.x
+        self.rect.y = 0
 
-        self.rect = pygame.Rect((self.player.rect.x, self.player.rect.y, 40, 40))
 
     def update(self):
         self.rect.x += (self.player.rect.x - self.rect.x) * 0.1
 
         self.rect.y += (self.player.rect.y - self.rect.y) * 0.1
+
+    def draw(self, display):
+        display.blit(self.image, self.rect)

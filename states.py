@@ -216,12 +216,14 @@ class Level(States):
 
     # Common draws function
     def draws(self, screen):
-        self.world_surface.blit(resources.brick_background, (32, 32))
+        self.world_surface.fill(settings.white)
 
         # Draw the player, walls and exits
         self.exits.draw(self.world_surface)
         self.walls.draw(self.world_surface)
         self.player.draw(self.world_surface)
+
+        #self.camera.draw(self.world_surface)
 
         # Blit the world surface to the main display
         # If shake amount is more than 0, blit the world at a random location between
