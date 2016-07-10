@@ -117,7 +117,9 @@ class Level(States):
                             if exit:
                                 w = sprites.Wall(temp_level_x, temp_level_y, 32, 64, settings.green)
                                 self.exits.add(w)
-                                exit = False # Place exit in first room placed
+
+                                exit = False # Place exit in first room place
+
 
                             if cols != 0:
                                 # Player starting position at last room made, -1 position, if room is part of solution path
@@ -165,6 +167,11 @@ class Level(States):
         self.cam_y_offset = self.max_y_offset
         self.camera = sprites.Camera(self.player)
 
+        # Place the camera at the game's exit
+        for cam_start in self.exits:
+            self.camera.rect.x, self.camera.rect.y = (cam_start.rect.x, cam_start.rect.y)
+            break
+
         # Screen shake variables
         self.shake_amount = 10
 
@@ -188,14 +195,15 @@ class Level(States):
                 else:
                     self.quit = True
 
+            if event.key == pygame.K_g:
+                self.player.boost = not self.player.boost
+
     # Common updates function
     def updates(self):
-        self.camera.camera_align = self.player.cam_direction
-
         self.camera.update()
 
         # Horizontal Camera scrolling
-        self.cam_x_offset = self.camera.rect.x - settings.display_width / 2
+        self.cam_x_offset = self.camera.rect.center[0] - settings.display_width / 2
 
         self.cam_x_offset = max(0, self.cam_x_offset)
         self.cam_x_offset = min(((66 - 25) * 32, self.cam_x_offset))

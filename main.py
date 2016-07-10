@@ -40,7 +40,7 @@ class Control:
             self.clock.tick(settings.FPS)
             self.events()
             self.update()
-            pygame.display.update()
+            pygame.display.update((0, 0, settings.display_width, settings.display_height))
             pygame.display.set_caption(settings.title + " running at " + str(int(self.clock.get_fps())) + " frames per second")
 
     # Event handling

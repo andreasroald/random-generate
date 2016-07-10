@@ -6,5 +6,6 @@ pygame.init()
 
 # IMAGES
 #brick_background = pygame.image.load("images/background.png")
+brick = pygame.image.load("images/brick.png")
 
 #ladder = pygame.image.load("images/ladder.png")

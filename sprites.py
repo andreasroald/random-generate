@@ -33,6 +33,8 @@ class Player(pygame.sprite.Sprite):
 
         self.cam_direction = "middle"
 
+        self.boost = True
+
         self.space = False
 
         self.in_exit = False
@@ -79,7 +81,7 @@ class Player(pygame.sprite.Sprite):
             self.acceleration = -settings.player_acc
 
             # Switch direction faster
-            if self.x_velocity > 0:
+            if self.x_velocity > 0 and self.boost:
                 self.x_velocity += self.acceleration + self.acceleration * settings.reactivity_percent
             else:
                 self.x_velocity += self.acceleration
@@ -95,7 +97,7 @@ class Player(pygame.sprite.Sprite):
             self.acceleration = settings.player_acc
 
             # Switch direciton faster
-            if self.x_velocity < 0:
+            if self.x_velocity < 0 and self.boost:
                 self.x_velocity += self.acceleration + self.acceleration * settings.reactivity_percent
             else:
                 self.x_velocity += self.acceleration
@@ -234,11 +236,18 @@ class Camera(pygame.sprite.Sprite):
         self.rect.x = self.player.rect.x
         self.rect.y = 0
 
+        self.speed_multiplier = 0.01
+
 
     def update(self):
-        self.rect.x += (self.player.rect.x - self.rect.x) * 0.1
+        target_x = self.player.rect.center[0] - self.rect.center[0] + (pygame.mouse.get_pos()[0] - settings.display_width / 2) / 2
+        target_y = self.player.rect.center[1] - self.rect.center[1] + (pygame.mouse.get_pos()[1] - settings.display_height / 2) / 2
 
-        self.rect.y += (self.player.rect.y - self.rect.y) * 0.1
+        if self.speed_multiplier < 0.1:
+            self.speed_multiplier += 0.0025
+
+        self.rect.x += (target_x) * self.speed_multiplier
+        self.rect.y += (target_y) * self.speed_multiplier
 
     def draw(self, display):
         display.blit(self.image, self.rect)
